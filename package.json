@@ -1,0 +1,41 @@
+{
+  "name": "muren",
+  "version": "1.0.0",
+  "description": "bulk MUsic RENamer",
+  "main": "muren.js",
+  "bin": {
+    "muren": "muren-curses.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vvvggg/muren.git"
+  },
+  "keywords": [
+    "rename",
+    "tag",
+    "music",
+    "files",
+    "sound",
+    "mp3",
+    "organize",
+    "collection"
+  ],
+  "author": "vvvggg",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/vvvggg/muren/issues"
+  },
+  "homepage": "https://github.com/vvvggg/muren#readme",
+  "dependencies": {
+    "blessed": "^0.1.81",
+    "blessed-contrib": "^4.8.5",
+    "commander": "^2.11.0",
+    "glob": "^7.1.2",
+    "npmdoc-blessed": "^2017.4.23",
+    "npmdoc-blessed-contrib": "^2017.4.27",
+    "npmtest-blessed-contrib": "0.0.2"
+  }
+}
