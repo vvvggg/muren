@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 
 # INFO: requires shntools and flac
+#	requires optionally mac (Monkey's Audio Codec for .ape file support)
+#	https://askubuntu.com/questions/800622/ape-files-monkeys-audio-how-to-create-them-under-trusty-and-xenial#804263
 # Usage: somewhat like
-# 	find . -iname "*.cue" -exec bash -c 'cd "`dirname \"{}\"`" && /home/user/projects/musiclib/flac2flacs_split.sh' \;
+#	find . -iname "*.cue" -execdir bash -c '~/Music/flac2flacs.sh' \; 2>&1 > /tmp/flac2flacs.log
 
 ### EDIT this up to you needs
 export outfiletype=flac
-outdir="/home/user/Music/lossless/outflac"
+outdir="/storage/7.7/music/new/lossless/outflac"
 tmpdir="tmp"
 stuffdir="stuff"
 pregapfile_ipattern="*00*pregap*.*"				# To be removed
@@ -65,8 +67,10 @@ function splitfile() {
 	# split based on the infile type
 	local infiletype=`getfiletype "$infile"`
 	case  $infiletype in
-		flac)
+		ape|flac)
 			shntool split 					\
+				-q					\
+				-P dot					\
 				-o "flac flac -s --best -o %f -" 	\
 				-O always 				\
 				-f "$cuefile" 				\
@@ -88,9 +92,7 @@ function cleanup() {
 	# remove "pregap" artifacts, etc.
 	local targetdir=$1
 	local targetfilename=$2
-	find "$targetdir" -type f -iname "$targetfilename" -print0 |	\
-	xargs -0 					  		\
-	rm -f
+	find "$targetdir" -type f -iname "$targetfilename" -delete
 }
 
 function copystuff() {
@@ -106,11 +108,14 @@ function copystuff() {
 	}
 	local stufffile_exts=$1
 	local stuffdir=$2
-	local stufffile_ipattern=`join_by ' -or -iname *.' $stufffile_exts`
-	stufffile_ipattern="-iname *.${stufffile_ipattern}"
-	mkdir -p "$tmpdir/$stuffdir"
-	find . -type f \( $stufffile_ipattern \) ! -wholename "*/$tmpdir/*" -print0 | 	\
-	xargs -0 -I^^ 									\
+	# jpg|png|gif|etc
+	local stufffile_ipattern=`join_by '\|' $stufffile_exts`
+	# .*\.(jpg|png|gif|etc)
+	# i.e. *.jpg OR *.png OR *.gif OR *.etc
+	stufffile_ipattern='.*\.\('${stufffile_ipattern}'\)'
+	mkdir -p "$tmpdir/$stuffdir" && 							\
+	find "$PWD" -type f \! -wholename "*/$tmpdir/*" -iregex "$stufffile_ipattern" -print0 |	\
+	xargs -0 -I^^ 										\
 	cp -f "^^" "$tmpdir/$stuffdir"
 }
 
@@ -218,13 +223,20 @@ function renametaggedfiles() {
 	export outdir=$2
 	# dst dir from metadata of the some (last?) file to be renamed, should be the same across all the files in srcdir, otherwise...
 	# find and rename inside :)
+	echo ===
 	local dstdir=`find "$srcdir" -maxdepth 1 -type f -iname "*.$outfiletype" -exec bash -c 'renamefile "{}"' \; | tail -n 1`
+	echo ---
+	echo
 	# rename the stuff as well
-	mkdir -p "${dstdir}/${stuffdir}"
-	mv -fu "$tmpdir/$stuffdir"/* "${dstdir}/${stuffdir}"/ &&\
-	rmdir "$tmpdir/$stuffdir"
-	# and return destionation dir for further deals
-	echo "$dstdir"
+	mkdir -p "${dstdir}/${stuffdir}" &&\
+	# TODO: add check if the source files exist for copying
+	# to prevent non-critical messages like
+	# 	cp: cannot stat 'tmp/stuff/*': No such file or directory
+	find "$tmpdir/$stuffdir" -mindepth 1 -print0 | 	\
+	xargs -0 -I^^				\
+	cp -fu "^^" "${dstdir}/${stuffdir}"/
+	rm -rf "$tmpdir/$stuffdir"
+	#echo "$dstdir" done.
 }
 
 # search the first matched CUE file name
