@@ -20,11 +20,6 @@ function filesearch() {
 	local filename=$1	# like myfile
 	local filext=$2		# like .txt
 	local search_result=`find "$PWD" -maxdepth 1 -type f -iname "$filename$filext" | head -n 1`
-	# err if no result
-	if [ "xxx$search_result" = "xxx" ] ; then
-		echo "no \"$filename$filext\" file found at \"$PWD\""
-		exit 1 ;
-	fi
 	echo $search_result
 }
 
@@ -41,8 +36,12 @@ function getfiletype() {
 		"Monkey's"*)
 			type=ape
 			;;
+		*"No such file"*)
+			echo "no file name given" >/dev/stderr
+			exit 1
+			;;
 		*)
-			echo "couldn't determine \"$infile\" file type"
+			echo "couldn't determine \"$infile\" file type" >/dev/stderr
 			exit 1
 			;;
 	esac
@@ -56,6 +55,10 @@ function getfilefromcue() {
 	local cuefile=$1
 	local filename_fromcue=`grep FILE "$cuefile" | sed 's/FILE\ *"\(.*\)".*/\1/'`
 	local filename=`filesearch "$filename_fromcue"`
+	if [ "xxx$filename" = "xxx" ] ; then
+		echo "can't find file \"$filename_fromcue\" got from \"$cuefile\"" >/dev/stderr
+		exit 1
+	fi
 	echo $filename
 }
 
@@ -79,8 +82,12 @@ function splitfile() {
 				-d "$tmpdir" 				\
 				"$infile" 
 			;;
+		"")
+			echo "no file to split" >/dev/stderr
+			exit 1
+			;;
 		*)
-			echo "unknown input file  \"${infile}\" type \"${infiletype}\", no idea how to split it"
+			echo "unknown input file  \"${infile}\" type \"${infiletype}\", no idea how to split it" >/dev/stderr
 			exit 1
 			;;
 	esac
@@ -150,7 +157,7 @@ function tagoutfiles() {
 				# DEBUG: metaflac --list "$filename"
 				;;
 			*)
-				echo "unknown output file \"${outfile}\" type \"${outfiletype}\", no idea how to tag it"
+				echo "unknown output file \"${outfile}\" type \"${outfiletype}\", no idea how to tag it" >/dev/stderr
 				exit 1
 				;;
 		esac
@@ -177,7 +184,7 @@ function renametaggedfiles() {
 					# DEBUG: metaflac --list "$filename"
 					;;
 				*)
-					echo "unknown source file \"${filename}\" type \"${filetype}\", no idea how to get tags from it"
+					echo "unknown source file \"${filename}\" type \"${filetype}\", no idea how to get tags from it" >/dev/stderr
 					exit 1
 					;;
 			esac
@@ -223,10 +230,7 @@ function renametaggedfiles() {
 	export outdir=$2
 	# dst dir from metadata of the some (last?) file to be renamed, should be the same across all the files in srcdir, otherwise...
 	# find and rename inside :)
-	echo ===
 	local dstdir=`find "$srcdir" -maxdepth 1 -type f -iname "*.$outfiletype" -exec bash -c 'renamefile "{}"' \; | tail -n 1`
-	echo ---
-	echo
 	# rename the stuff as well
 	mkdir -p "${dstdir}/${stuffdir}" &&\
 	# TODO: add check if the source files exist for copying
