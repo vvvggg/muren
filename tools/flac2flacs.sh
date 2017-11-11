@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
 
-# INFO: requires shntools and flac
+# INFO: requires bash, shntools and flac
 #	requires optionally mac (Monkey's Audio Codec for .ape file support)
 #	https://askubuntu.com/questions/800622/ape-files-monkeys-audio-how-to-create-them-under-trusty-and-xenial#804263
 # Usage: somewhat like
-#	find . -iname "*.cue" -execdir bash -c '~/Music/flac2flacs.sh' \; 2>&1 > /tmp/flac2flacs.log
+#	cd target_dir; ~/Music/flac2flacs.sh
+#	or
+#	find . -iname "*.cue" -printf '%h\0' | uniq -z | xargs -0 -I^^ bash -c 'cd "^^"; ~/Music/flac2flacs.sh'
 
 ### EDIT this up to you needs
 export outfiletype=flac
-outdir="/storage/7.7/music/new/lossless/outflac"
-tmpdir="tmp"
-stuffdir="stuff"
-pregapfile_ipattern="*00*pregap*.*"				# To be removed
-stufffile_exts="jpg jpeg png gif txt htm html pdf gp4 gp5 tg"	# To be saved
+export outdir="/storage/7.7/music/new/lossless/outflac"
+export tmpdir="tmp"
+export stuffdir="stuff"
+export pregapfile_ipattern="*00*pregap*.*"				# To be removed
+export stufffile_exts="jpg jpeg png gif txt htm html pdf gp4 gp5 tg"	# To be saved
 
 ### DO NOT EDIT the following unless absolutely sure
 function filesearch() {
@@ -22,6 +24,7 @@ function filesearch() {
 	local search_result=`find "$PWD" -maxdepth 1 -type f -iname "$filename$filext" | head -n 1`
 	echo $search_result
 }
+export -f filesearch
 
 function getfiletype() {
 	# determine the file type
@@ -47,7 +50,6 @@ function getfiletype() {
 	esac
 	echo $type
 }
-# for renametaggedfiles.renamefile.readfiletags tags
 export -f getfiletype
 
 function getfilefromcue() {
@@ -56,19 +58,20 @@ function getfilefromcue() {
 	local filename_fromcue=`grep FILE "$cuefile" | sed 's/FILE\ *"\(.*\)".*/\1/'`
 	local filename=`filesearch "$filename_fromcue"`
 	if [ "xxx$filename" = "xxx" ] ; then
-		echo "can't find file \"$filename_fromcue\" got from \"$cuefile\"" >/dev/stderr
+		echo "can't find file \"$filename_fromcue\" got from this cue sheet" >/dev/stderr
 		exit 1
 	fi
 	echo $filename
 }
+export -f getfilefromcue
 
 function splitfile() {
 	local cuefile=$1
 	local tmpdir=$2
 	local infile=`getfilefromcue "$cuefile"`
+	local infiletype=`getfiletype "$infile"`
 	mkdir -p "$tmpdir"
 	# split based on the infile type
-	local infiletype=`getfiletype "$infile"`
 	case  $infiletype in
 		ape|flac)
 			shntool split 					\
@@ -94,6 +97,7 @@ function splitfile() {
 	# remove "pregap" artifacts from the result
 	cleanup "$tmpdir" "$pregapfile_ipattern"
 }
+export -f splitfile
 
 function cleanup() {
 	# remove "pregap" artifacts, etc.
@@ -101,6 +105,7 @@ function cleanup() {
 	local targetfilename=$2
 	find "$targetdir" -type f -iname "$targetfilename" -delete
 }
+export -f cleanup
 
 function copystuff() {
 	# find and copy (stuff) files to target dir
@@ -125,6 +130,7 @@ function copystuff() {
 	xargs -0 -I^^ 										\
 	cp -f "^^" "$tmpdir/$stuffdir"
 }
+export -f copystuff
 
 function tagoutfiles() {
 	function tagfile() {
@@ -168,6 +174,7 @@ function tagoutfiles() {
 	export tag_year_fromcue=`grep DATE "$cuefile" | head -n 1 | awk '{print $3}' | tr -d '\r'`
 	find "$dir" -type f -iname "*~*~*~*.$outfiletype" -exec bash -c 'tagfile "{}"' \;
 }
+export -f tagoutfiles
 
 function renametaggedfiles() {
 	function renamefile() {
@@ -242,18 +249,22 @@ function renametaggedfiles() {
 	rm -rf "$tmpdir/$stuffdir"
 	#echo "$dstdir" done.
 }
+export -f renametaggedfiles
 
-# search the first matched CUE file name
-# note backslashed asterisk
-cuefile=`filesearch \* .cue`
+function process() {
+	local cuefile=$1
+	echo -n "processing \"$cuefile\" ... "
+	# split sound file having its filename got from the CUE file
+	# and put resulting files into output dir
+	# then perform copy of media stuff (covers, lyrics, etc.) if the successful split
+	splitfile         "$cuefile"        "$tmpdir"   &&\
+	copystuff         "$stufffile_exts" "$stuffdir"
+	tagoutfiles       "$cuefile"        "$tmpdir"   &&\
+	renametaggedfiles "$tmpdir"	    "$outdir"   &&\
+	rmdir             "$tmpdir"
+}
+export -f process
 
-# split sound file having its filename got from the CUE file
-# and put resulting files into output dir
-# then perform copy of media stuff (covers, lyrics, etc.) if the successful split
-splitfile         "$cuefile"        "$tmpdir"   &&\
-copystuff         "$stufffile_exts" "$stuffdir"
-tagoutfiles       "$cuefile"        "$tmpdir"   &&\
-renametaggedfiles "$tmpdir"	    "$outdir"   &&\
-rmdir             "$tmpdir"
+find "$PWD" -maxdepth 1 -type f -iname "*.cue" -exec bash -c 'process "{}" && echo done.' \;
 
 exit 0
