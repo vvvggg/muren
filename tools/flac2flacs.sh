@@ -17,6 +17,7 @@ export pregapfile_ipattern="*00*pregap*.*"				# To be removed
 export stufffile_exts="jpg jpeg png gif txt htm html pdf gp4 gp5 tg"	# To be saved
 
 ### DO NOT EDIT the following unless absolutely sure
+export me=`basename "$0"`
 function filesearch() {
 	# search the first matched file name in the current dir
 	local filename=$1	# like myfile
@@ -40,11 +41,11 @@ function getfiletype() {
 			type=ape
 			;;
 		*"No such file"*)
-			echo "no file name given" >/dev/stderr
+			echo $me [${FUNCNAME[0]}]: "no file name given" >/dev/stderr
 			exit 1
 			;;
 		*)
-			echo "couldn't determine \"$infile\" file type" >/dev/stderr
+			echo $me [${FUNCNAME[0]}]: "couldn't determine \"$infile\" file type" >/dev/stderr
 			exit 1
 			;;
 	esac
@@ -58,7 +59,7 @@ function getfilefromcue() {
 	local filename_fromcue=`grep FILE "$cuefile" | sed 's/FILE\ *"\(.*\)".*/\1/'`
 	local filename=`filesearch "$filename_fromcue"`
 	if [ "xxx$filename" = "xxx" ] ; then
-		echo "can't find file \"$filename_fromcue\" got from this cue sheet" >/dev/stderr
+		echo $me [${FUNCNAME[0]}]: "can't find file \"$filename_fromcue\" got from this cue sheet" >/dev/stderr
 		exit 1
 	fi
 	echo $filename
@@ -83,14 +84,14 @@ function splitfile() {
 				-t "%p~%a~%n~%t" 			\
 				-m '/-' 				\
 				-d "$tmpdir" 				\
-				"$infile" 
+				"$infile"
 			;;
 		"")
-			echo "no file to split" >/dev/stderr
+			echo $me [${FUNCNAME[0]}]: "no file to split" >/dev/stderr
 			exit 1
 			;;
 		*)
-			echo "unknown input file  \"${infile}\" type \"${infiletype}\", no idea how to split it" >/dev/stderr
+			echo $me [${FUNCNAME[0]}]: "unknown input file  \"${infile}\" type \"${infiletype}\", no idea how to split it" >/dev/stderr
 			exit 1
 			;;
 	esac
@@ -109,7 +110,7 @@ export -f cleanup
 
 function copystuff() {
 	# find and copy (stuff) files to target dir
-	# join_by function is got from 
+	# join_by function is got from
 	# https://stackoverflow.com/questions/1527049/join-elements-of-an-array#17841619
 	function join_by() {
 		local d=$1
@@ -163,7 +164,7 @@ function tagoutfiles() {
 				# DEBUG: metaflac --list "$filename"
 				;;
 			*)
-				echo "unknown output file \"${outfile}\" type \"${outfiletype}\", no idea how to tag it" >/dev/stderr
+				echo $me [${FUNCNAME[0]}]: "unknown output file \"${outfile}\" type \"${outfiletype}\", no idea how to tag it" >/dev/stderr
 				exit 1
 				;;
 		esac
@@ -191,7 +192,7 @@ function renametaggedfiles() {
 					# DEBUG: metaflac --list "$filename"
 					;;
 				*)
-					echo "unknown source file \"${filename}\" type \"${filetype}\", no idea how to get tags from it" >/dev/stderr
+					echo $me [${FUNCNAME[0]}]: "unknown source file \"${filename}\" type \"${filetype}\", no idea how to get tags from it" >/dev/stderr
 					exit 1
 					;;
 			esac
@@ -204,9 +205,9 @@ function renametaggedfiles() {
 		# Make tag contents FAT-friendly (implies music players and other portable devices)
 		# replacing characters < > : " / \ | ? *
 		# (as per https://msdn.microsoft.com/en-us/library/aa365247(VS.85).aspx)
-		# with _ and deleting newlines/returns as well 
+		# with _ and deleting newlines/returns as well
 		# so should be ok particularly with *nix common FS'es
-		# DEBUG: 
+		# DEBUG:
 		# tags="
 		# 	ARTIST=Cool Band
 		# 	DATE=2012
@@ -238,16 +239,22 @@ function renametaggedfiles() {
 	# dst dir from metadata of the some (last?) file to be renamed, should be the same across all the files in srcdir, otherwise...
 	# find and rename inside :)
 	local dstdir=`find "$srcdir" -maxdepth 1 -type f -iname "*.$outfiletype" -exec bash -c 'renamefile "{}"' \; | tail -n 1`
-	# rename the stuff as well
-	mkdir -p "${dstdir}/${stuffdir}" &&\
-	# TODO: add check if the source files exist for copying
-	# to prevent non-critical messages like
-	# 	cp: cannot stat 'tmp/stuff/*': No such file or directory
-	find "$tmpdir/$stuffdir" -mindepth 1 -print0 | 	\
-	xargs -0 -I^^				\
-	cp -fu "^^" "${dstdir}/${stuffdir}"/
+	#echo -n "-> \"$dstdir\" ... "
+  if [[ ! -z $dstdir ]] ; then
+	  # if dstdir is not null, copy/"rename" the stuff as well
+		mkdir -p "${dstdir}/${stuffdir}" &&\
+		# TODO: add check if the source files exist for copying
+		# to prevent non-critical messages like
+		# 	cp: cannot stat 'tmp/stuff/*': No such file or directory
+		find "$tmpdir/$stuffdir" -mindepth 1 -print0 | 	\
+		xargs -0 -I^^				\
+		cp -fu "^^" "${dstdir}/${stuffdir}"/
+  else
+		echo $me [${FUNCNAME[0]}]: "no (stuff) final destination possible" > /dev/stderr
+		exit 1
+		rm -rf "$tmpdir/$stuffdir"
+	fi
 	rm -rf "$tmpdir/$stuffdir"
-	#echo "$dstdir" done.
 }
 export -f renametaggedfiles
 
@@ -265,6 +272,6 @@ function process() {
 }
 export -f process
 
-find "$PWD" -maxdepth 1 -type f -iname "*.cue" -exec bash -c 'process "{}" && echo done.' \;
+find "$PWD" -maxdepth 1 -type f -iname "*.cue" -execdir bash -c 'process "{}" && echo done.' \;
 
 exit 0
