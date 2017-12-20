@@ -22,7 +22,10 @@ function filesearch() {
 	# search the first matched file name in the current dir
 	local filename=$1	# like myfile
 	local filext=$2		# like .txt
-	local search_result=`find "$PWD" -maxdepth 1 -type f -iname "$filename$filext" | head -n 1`
+  # escape square brackets
+	local search_pattern=`echo "$filename$filext" | sed -re 's/([][])/\\\\\\1/g'`
+	# DEBUG: echo -e "\n\nDEBUG: ___ $search_pattern ___ \n" >/dev/stderr
+	local search_result=`find "$PWD" -maxdepth 1 -type f -iname "$search_pattern" | head -n 1`
 	echo $search_result
 }
 export -f filesearch
@@ -146,22 +149,22 @@ function tagoutfiles() {
 		# DEBUG: name='Borgne"~Royaume Des Ombres~04~Only the Dead Can Be Heard.flac'
 		local    tag_year=`echo $tag_year_fromcue            | sed -re 's/([\`!$"/\])/\\1/g'`
 		local  tag_artist=`echo $name | awk -F~ '{print $1}' | sed -re 's/([\`!$"/\])/\\1/g' | sed 's/\(.*\)/\L\1/;s/\b[a-z]/\U&/g'`
-		local   tag_album=`echo $name | awk -F~ '{print $2}' | sed -re 's/([\`!$"/\])/\\1/g'`
+		local   tag_album=`echo $name | awk -F~ '{print $2}' | sed -re 's/([\`!$"/\])/\\1/g' | sed 's/\b[a-z]/\U&/g'`
 		local tag_trackno=`echo $name | awk -F~ '{print $3}' | sed -re 's/([\`!$"/\])/\\1/g'`
-		local   tag_title=`echo $name | awk -F~ '{print $4}' | sed -re 's/([\`!$"/\])/\\1/g'`
+		local   tag_title=`echo $name | awk -F~ '{print $4}' | sed -re 's/([\`!$"/\])/\\1/g' | sed 's/\b[a-z]/\U&/g'`
 		case $outfiletype in
 			flac)
-				metaflac --remove-tag=ARTIST 		\
-					 --remove-tag=DATE 		\
-					 --remove-tag=ALBUM 		\
-					 --remove-tag=TRACKNUMBER 	\
-					 --remove-tag=TITLE 		\
+				metaflac --remove-tag=ARTIST  \
+					 --remove-tag=DATE          \
+					 --remove-tag=ALBUM         \
+					 --remove-tag=TRACKNUMBER   \
+					 --remove-tag=TITLE         \
 					 "$outfile"
-				metaflac --set-tag="ARTIST=${tag_artist}" 	\
-					 --set-tag="DATE=${tag_year}" 		\
-					 --set-tag="ALBUM=${tag_album}" 	\
-					 --set-tag="TRACKNUMBER=${tag_trackno}" \
-					 --set-tag="TITLE=${tag_title}" 	\
+				metaflac --set-tag="ARTIST=${tag_artist}"  \
+					 --set-tag="DATE=${tag_year}"            \
+					 --set-tag="ALBUM=${tag_album}"          \
+					 --set-tag="TRACKNUMBER=${tag_trackno}"  \
+					 --set-tag="TITLE=${tag_title}"          \
 					 "$outfile"
 				# DEBUG: metaflac --list "$filename"
 				;;
