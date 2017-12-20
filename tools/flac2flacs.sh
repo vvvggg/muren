@@ -10,11 +10,11 @@
 
 ### EDIT this up to you needs
 export outfiletype=flac
-export outdir="/storage/7.7/music/new/lossless/outflac"
+export outdir="/storage/7.7/music/outflac"
 export tmpdir="tmp"
 export stuffdir="stuff"
 export pregapfile_ipattern="*00*pregap*.*"				# To be removed
-export stufffile_exts="jpg jpeg png gif txt htm html pdf gp4 gp5 tg"	# To be saved
+export stufffile_exts="jpg jpeg png gif htm html pdf gp4 gp5 tg"	# To be saved
 
 ### DO NOT EDIT the following unless absolutely sure
 export me=`basename "$0"`
@@ -141,9 +141,11 @@ function tagoutfiles() {
 		# sanitizer (backslasher) for possible symbols  ` ! $ " / \
 		# 	sed -re 's/([\`!$"/\])/\\1/g'
 		# maybe need to expand to  re_forbidden_chars = re.compile(r'["\*\/:<>\?\\|]')
+		# the second sed us used to lowercase then Capitalize First Letters of the Artist:
+		#    sed 's/\(.*\)/\L\1/;s/\b[a-z]/\U&/g'
 		# DEBUG: name='Borgne"~Royaume Des Ombres~04~Only the Dead Can Be Heard.flac'
 		local    tag_year=`echo $tag_year_fromcue            | sed -re 's/([\`!$"/\])/\\1/g'`
-		local  tag_artist=`echo $name | awk -F~ '{print $1}' | sed -re 's/([\`!$"/\])/\\1/g'`
+		local  tag_artist=`echo $name | awk -F~ '{print $1}' | sed -re 's/([\`!$"/\])/\\1/g' | sed 's/\(.*\)/\L\1/;s/\b[a-z]/\U&/g'`
 		local   tag_album=`echo $name | awk -F~ '{print $2}' | sed -re 's/([\`!$"/\])/\\1/g'`
 		local tag_trackno=`echo $name | awk -F~ '{print $3}' | sed -re 's/([\`!$"/\])/\\1/g'`
 		local   tag_title=`echo $name | awk -F~ '{print $4}' | sed -re 's/([\`!$"/\])/\\1/g'`
